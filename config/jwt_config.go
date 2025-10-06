@@ -13,6 +13,7 @@ type Config struct {
 	RefreshTokenTTL time.Duration
 	DBUrl           string
 	RedisAddress    string
+	RedisPassword   string
 }
 
 func LoadConfiguration() *Config {
@@ -24,5 +25,6 @@ func LoadConfiguration() *Config {
 		RefreshTokenTTL: 24 * time.Hour,
 		DBUrl:           os.Getenv("DB_URL"),
 		RedisAddress:    os.Getenv("REDIS_ADDR"),
+		RedisPassword:   os.Getenv("REDIS_PSSWRD"),
 	}
 }
