@@ -2,15 +2,17 @@ package repository
 
 import (
 	jwt "briefcash-jwt/internal/entity"
-	logs "briefcash-jwt/internal/helper/loghelper"
+	"context"
 
 	"gorm.io/gorm"
 )
 
 type JwtRepository interface {
-	Create(jwt *jwt.JwtToken) error
-	FindByRefreshToken(token string) (*jwt.JwtToken, error)
-	DeleteAccessByToken(token string) error
+	Create(ctx context.Context, jwt *jwt.JwtToken) error
+	FindByRefreshToken(ctx context.Context, token string) (*jwt.JwtToken, error)
+	FindByAccessToken(ctx context.Context, stringToken string) (*jwt.JwtToken, error)
+	DeleteAccessByToken(ctx context.Context, token string) error
+	WithTransaction(tx *gorm.DB) JwtRepository
 }
 
 type jwtRepository struct {
@@ -21,20 +23,32 @@ func NewJwtRepository(db *gorm.DB) JwtRepository {
 	return &jwtRepository{db}
 }
 
-func (r *jwtRepository) Create(jwt *jwt.JwtToken) error {
-	return r.db.Create(jwt).Error
+func (r *jwtRepository) Create(ctx context.Context, jwt *jwt.JwtToken) error {
+	return r.db.WithContext(ctx).Create(jwt).Error
 }
 
-func (r *jwtRepository) FindByRefreshToken(token string) (*jwt.JwtToken, error) {
+func (r *jwtRepository) FindByAccessToken(ctx context.Context, tokenString string) (*jwt.JwtToken, error) {
+	var token jwt.JwtToken
+
+	if err := r.db.WithContext(ctx).Where("access_token = ?", tokenString).First(&token).Error; err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
+
+func (r *jwtRepository) FindByRefreshToken(ctx context.Context, token string) (*jwt.JwtToken, error) {
 	var tkn jwt.JwtToken
-	if err := r.db.Where("refresh_token = ?", token).First(&tkn).Error; err != nil {
-		logs.Logger.Error("refresh token not found")
+	if err := r.db.WithContext(ctx).Where("refresh_token = ?", token).First(&tkn).Error; err != nil {
 		return nil, err
 	}
 	return &tkn, nil
 }
 
-func (r *jwtRepository) DeleteAccessByToken(token string) error {
-	var tkn jwt.JwtToken
-	return r.db.Where("access_token = ?", token).Delete(&tkn).Error
+func (r *jwtRepository) DeleteAccessByToken(ctx context.Context, token string) error {
+	return r.db.Where("access_token = ?", token).Delete(&jwt.JwtToken{}).Error
+}
+
+func (r *jwtRepository) WithTransaction(tx *gorm.DB) JwtRepository {
+	return &jwtRepository{db: tx}
 }

@@ -7,3 +7,9 @@ type JwtResponse struct {
 	CreatedAt    string `json:"created_at"`
 	ExpiresAt    string `json:"expires_at"`
 }
+
+type JwtDataResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
+}

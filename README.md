@@ -1,2 +1,2 @@
 # briefcash-jwt
-Service fo generation JWT Token
+Service for generation jwt token

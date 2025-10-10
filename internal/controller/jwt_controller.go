@@ -2,8 +2,9 @@ package controller
 
 import (
 	dto "briefcash-jwt/internal/dto"
+	jsonHelper "briefcash-jwt/internal/helper/jsonhelper"
+	middleware "briefcash-jwt/internal/middleware"
 	service "briefcash-jwt/internal/service"
-	"context"
 	"encoding/json"
 	"net/http"
 )
@@ -18,69 +19,91 @@ func NewTokenController(s service.TokenService) *TokenController {
 
 func (c *TokenController) GenerateToken(w http.ResponseWriter, r *http.Request) {
 	var tokenRequest dto.JwtRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 
-	if err := json.NewDecoder(r.Body).Decode(&tokenRequest); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+	if err := decoder.Decode(&tokenRequest); err != nil {
+		jsonHelper.WriteJsonError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	token, err := c.TokenService.GenerateToken(context.Background(), tokenRequest)
+	token, err := c.TokenService.GenerateToken(r.Context(), tokenRequest)
 	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		jsonHelper.WriteJsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(token)
+	jsonHelper.WriteJson(w, http.StatusOK, dto.JwtDataResponse{
+		Status:  true,
+		Message: "SUCCESS",
+		Data:    token,
+	})
 }
 
 func (c *TokenController) ValidateToken(w http.ResponseWriter, r *http.Request) {
-	auth := r.Header.Get("Authorization")
-	if len(auth) < 8 || auth[:7] != "Bearer " {
-		http.Error(w, "missing bearer token", http.StatusUnauthorized)
-	}
-
-	tokenString := auth[7:]
-
-	token, err := c.TokenService.ValidateToken(context.Background(), tokenString)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+	tokenString, ok := middleware.GetTokenFromContext(r.Context())
+	if !ok {
+		jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "token not found in context")
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]any{"valid": true, "claims": token.Claims})
+	token, err := c.TokenService.ValidateToken(r.Context(), tokenString)
+
+	if err != nil {
+		jsonHelper.WriteJsonError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	jsonHelper.WriteJson(w, http.StatusOK, dto.JwtDataResponse{
+		Status:  true,
+		Message: "SUCCESS",
+		Data: map[string]any{
+			"valid":  true,
+			"claims": token.Claims,
+		},
+	})
 }
 
 func (c *TokenController) Logout(w http.ResponseWriter, r *http.Request) {
-	auth := r.Header.Get("Authorization")
-	if len(auth) < 8 || auth[:7] != "Bearer " {
-		http.Error(w, "missing bearer token", http.StatusUnauthorized)
-	}
-	tokenString := auth[7:]
-
-	err := c.TokenService.BlacklistToken(context.Background(), tokenString)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	tokenString, ok := middleware.GetTokenFromContext(r.Context())
+	if !ok {
+		jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "token not found in context")
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"message": "log out success"})
+	err := c.TokenService.BlacklistToken(r.Context(), tokenString)
+
+	if err != nil {
+		jsonHelper.WriteJsonError(w, http.StatusInternalServerError, "failed to logout token")
+		return
+	}
+
+	jsonHelper.WriteJson(w, http.StatusOK, dto.JwtDataResponse{
+		Status:  true,
+		Message: "SUCCESS",
+		Data:    "logout success",
+	})
 }
 
 func (c *TokenController) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
-	}
+	var req dto.JwtRefreshToken
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+	if err := decoder.Decode(&req); err != nil {
+		jsonHelper.WriteJsonError(w, http.StatusBadRequest, "invalid body request")
 		return
 	}
 
-	token, err := c.TokenService.RefreshToken(context.Background(), req.RefreshToken)
+	token, err := c.TokenService.RefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		jsonHelper.WriteJsonError(w, http.StatusUnauthorized, err.Error())
+		return
 	}
-	json.NewEncoder(w).Encode(token)
+
+	jsonHelper.WriteJson(w, http.StatusOK, dto.JwtDataResponse{
+		Status:  true,
+		Message: "SUCCESS",
+		Data:    token,
+	})
 }

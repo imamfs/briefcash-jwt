@@ -1,27 +1,42 @@
 package middleware
 
 import (
-	service "briefcash-jwt/internal/service"
+	jsonHelper "briefcash-jwt/internal/helper/jsonhelper"
 	"context"
 	"net/http"
 	"strings"
 )
 
-func AuthMiddleware(service service.TokenService, next http.Handler) http.Handler {
+type contextKey string
+
+const tokenKey contextKey = "token"
+
+func GetTokenFromContext(ctx context.Context) (string, bool) {
+	token, ok := ctx.Value(tokenKey).(string)
+	return token, ok
+}
+
+func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		auth := r.Header.Get("Authorization")
+
+		if auth == "" {
+			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "missing authorization header")
 			return
 		}
 
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		_, err := service.ValidateToken(context.Background(), tokenStr)
-		if err != nil {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+		if !strings.HasPrefix(auth, "Bearer ") {
+			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "invalid authorization format")
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		authToken := strings.TrimPrefix(auth, "Bearer ")
+		if authToken == "" {
+			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "empty bearer token")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), tokenKey, authToken)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
