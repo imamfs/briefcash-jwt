@@ -24,8 +24,8 @@ func NewRedisHelper(cfg *config.Config) (*RedisHelper, error) {
 	address := fmt.Sprintf("%s:%s", cfg.RedisAddress, cfg.RedisPort)
 
 	client := redis.NewClient(&redis.Options{
-		Addr:         address,
-		Password:     cfg.RedisPassword,
+		Addr: address,
+		//Password:     cfg.RedisPassword,
 		DB:           0,
 		PoolSize:     50,
 		MinIdleConns: 10,

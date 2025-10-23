@@ -1,3 +1,36 @@
-time="2025-10-01T16:44:36+07:00" level=info msg="application started"
-time="2025-10-01T16:44:36+07:00" level=warning msg="this is warning"
-time="2025-10-01T16:44:36+07:00" level=error msg="this is error"
+time="2025-10-18T01:46:07+07:00" level=info msg="Logger initiate. Log file: ./resource/app.log"
+time="2025-10-18T01:46:07+07:00" level=info msg="Connected to Redis successfully"
+time="2025-10-18T01:46:07+07:00" level=info msg="Retrieve list of merchant codes from db"
+time="2025-10-18T01:46:07+07:00" level=info msg="Total list of merchant codes: 2"
+time="2025-10-18T01:46:07+07:00" level=info msg="Load list of merchant codes to redis"
+time="2025-10-18T01:46:07+07:00" level=info msg="List of merchant codes successfully loaded to redis"
+time="2025-10-18T01:46:07+07:00" level=info msg="Load active merchant code finished in 18.1565ms"
+time="2025-10-18T01:46:26+07:00" level=info msg="Generating access token" user_id=STARK-1225
+time="2025-10-18T01:46:26+07:00" level=info msg="Saving access token to database" user_id=STARK-1225
+time="2025-10-18T01:46:26+07:00" level=info msg="Saving access token to redis" user_id=STARK-1225
+time="2025-10-18T01:46:26+07:00" level=info msg="access token successfully generated" user_id=STARK-1225
+time="2025-10-23T11:23:08+07:00" level=info msg="Logger initiate. Log file: ./resource/app.log"
+time="2025-10-23T11:23:08+07:00" level=info msg="Connected to Redis successfully"
+time="2025-10-23T11:23:09+07:00" level=info msg="Retrieve list of merchant codes from db"
+time="2025-10-23T11:23:09+07:00" level=info msg="Total list of merchant codes: 2"
+time="2025-10-23T11:23:09+07:00" level=info msg="Load list of merchant codes to redis"
+time="2025-10-23T11:23:09+07:00" level=info msg="List of merchant codes successfully loaded to redis"
+time="2025-10-23T11:23:09+07:00" level=info msg="Load active merchant code finished in 39.5433ms"
+time="2025-10-23T11:23:26+07:00" level=info msg="Generating access token" user_id=STARK-1225
+time="2025-10-23T11:23:26+07:00" level=info msg="Saving access token to database" user_id=STARK-1225
+time="2025-10-23T11:23:26+07:00" level=error msg="Failed saving access token to database" error="ERROR: nilai kunci ganda melanggar batasan unik « jwt_token_pk » (SQLSTATE 23505)" user_id=STARK-1225
+time="2025-10-23T11:24:25+07:00" level=info msg="Generating access token" user_id=STARK-1225
+time="2025-10-23T11:24:25+07:00" level=info msg="Saving access token to database" user_id=STARK-1225
+time="2025-10-23T11:24:25+07:00" level=info msg="Saving access token to redis" user_id=STARK-1225
+time="2025-10-23T11:24:25+07:00" level=info msg="access token successfully generated" user_id=STARK-1225
+time="2025-10-23T11:29:50+07:00" level=info msg="Checking active merchant code in redis" merchant_code=STARK-1225
+time="2025-10-23T11:29:50+07:00" level=info msg="Merchant code is active in redis" merchant_code=STARK-1225
+time="2025-10-23T11:29:50+07:00" level=info msg="Check token in redis" token=eyJhbG....sAbuYY
+time="2025-10-23T11:29:50+07:00" level=info msg="Parsing JWT for token eyJhbG....sAbuYY" token=eyJhbG....sAbuYY
+time="2025-10-23T11:29:50+07:00" level=info msg="Token is valid" token=eyJhbG....sAbuYY
+time="2025-10-23T11:34:29+07:00" level=info msg="Blacklisting token" token=eyJhbG....sAbuYY
+time="2025-10-23T11:34:29+07:00" level=info msg="Token successfully blacklisted (TTL: 7h4m56.0878625s)" token=eyJhbG....sAbuYY
+time="2025-10-23T11:34:29+07:00" level=info msg="Generating refresh token" user_id=STARK-1225
+time="2025-10-23T11:34:29+07:00" level=info msg="Saving refresh token to database" user_id=STARK-1225
+time="2025-10-23T11:34:29+07:00" level=info msg="Saving refresh token to redis" user_id=STARK-1225
+time="2025-10-23T11:34:29+07:00" level=info msg="refresh token successfully generated" user_id=STARK-1225

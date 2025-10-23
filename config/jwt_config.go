@@ -24,7 +24,6 @@ type Config struct {
 }
 
 func LoadConfiguration() (*Config, error) {
-
 	if err := env.Load(); err != nil {
 		logs.Logger.Error("No .env file found, using system environment variables")
 	}

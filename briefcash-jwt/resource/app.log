@@ -1,0 +1,11 @@
+time="2025-10-18T01:42:23+07:00" level=info msg="Logger initiate. Log file: ./briefcash-jwt/resource/app.log"
+time="2025-10-18T01:42:23+07:00" level=info msg="Connected to Redis successfully"
+time="2025-10-18T01:42:23+07:00" level=info msg="Retrieve list of merchant codes from db"
+time="2025-10-18T01:42:23+07:00" level=info msg="Total list of merchant codes: 2"
+time="2025-10-18T01:42:23+07:00" level=info msg="Load list of merchant codes to redis"
+time="2025-10-18T01:42:23+07:00" level=info msg="List of merchant codes successfully loaded to redis"
+time="2025-10-18T01:42:23+07:00" level=info msg="Load active merchant code finished in 16.6786ms"
+time="2025-10-18T01:42:34+07:00" level=info msg="Generating access token" user_id=STARK-1225
+time="2025-10-18T01:42:34+07:00" level=info msg="Saving access token to database" user_id=STARK-1225
+time="2025-10-18T01:42:34+07:00" level=info msg="Saving access token to redis" user_id=STARK-1225
+time="2025-10-18T01:42:34+07:00" level=info msg="access token successfully generated" user_id=STARK-1225

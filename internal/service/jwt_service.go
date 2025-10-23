@@ -35,47 +35,63 @@ func NewTokenService(jr repo.JwtRepository, rr repo.RedisRepository, db *gorm.DB
 	return &tokenService{jr, rr, db, secret}
 }
 
-func (ts *tokenService) GenerateToken(ctx context.Context, dto dto.JwtRequest) (*dto.JwtResponse, error) {
-	log := logs.Logger.WithField("user_id", dto.UserID)
-	log.Infof("Generating %s token", dto.Type)
+func NewMockTokenService(jr repo.JwtRepository, rr repo.RedisRepository, secret string) TokenService {
+	return &tokenService{
+		jwtRepo:   jr,
+		redisRepo: rr,
+		db:        nil,
+		jwtSecret: secret,
+	}
+}
 
-	expiration := time.Now().Add(ts.tokenTTL(dto.Type))
-	claims := ts.buildClaims(dto.UserID, dto.Type, expiration)
+func (ts *tokenService) GenerateToken(ctx context.Context, req dto.JwtRequest) (*dto.JwtResponse, error) {
+	log := logs.Logger.WithField("user_id", req.UserID)
+	log.Infof("Generating %s token", req.Type)
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(ts.jwtSecret))
+	var expAccessToken, expRefreshToken time.Time
+	var signedAccessToken, signedRefreshToken string
+	var err error
 
+	expAccessToken = time.Now().Add(ts.tokenTTL("access"))
+	expRefreshToken = time.Now().Add(ts.tokenTTL("refresh"))
+
+	accessClaims := ts.buildClaims(req.UserID, expAccessToken)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	signedAccessToken, err = token.SignedString([]byte(ts.jwtSecret))
 	if err != nil {
-		log.WithError(err).Errorf("Failed signing %s token", dto.Type)
-		return nil, fmt.Errorf("failed to generate %s token", dto.Type)
+		log.WithError(err).Error("Failed signing access token")
+		return nil, fmt.Errorf("failed to generate access token")
+	}
+
+	refreshClaims := ts.buildRefreshClaims(req.UserID, expRefreshToken)
+	rtoken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	signedRefreshToken, err = rtoken.SignedString([]byte(ts.jwtSecret))
+	if err != nil {
+		log.WithError(err).Error("Failed signing refresh token")
+		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
 	tokenEntity := &model.JwtToken{
-		MerchantID:   dto.UserID,
-		AccessToken:  "",
-		RefreshToken: "",
+		MerchantID:   req.UserID,
+		AccessToken:  signedAccessToken,
+		RefreshToken: signedRefreshToken,
 		CreatedAt:    time.Now(),
-		ExpiresAt:    expiration,
+		ExpiresAt:    expAccessToken,
+		IsRevoke:     false,
 	}
 
-	if dto.Type == "access" {
-		tokenEntity.AccessToken = signedToken
-	} else {
-		tokenEntity.RefreshToken = signedToken
-	}
-
-	log.Infof("Saving %s token to database", dto.Type)
+	log.Infof("Saving %s token to database", req.Type)
 	if err := ts.saveToken(ctx, tokenEntity); err != nil {
-		log.WithError(err).Errorf("Failed saving %s token to database", dto.Type)
+		log.WithError(err).Errorf("Failed saving %s token to database", req.Type)
 		return nil, err
 	}
 
-	log.Infof("Saving %s token to redis", dto.Type)
-	if err := ts.redisRepo.SetToken(ctx, signedToken, "valid", time.Until(expiration)); err != nil {
-		log.WithError(err).Warnf("Failed to cache %s token to redis", dto.Type)
+	log.Infof("Saving %s token to redis", req.Type)
+	if err := ts.redisRepo.SetToken(ctx, signedAccessToken, "valid", time.Until(expAccessToken)); err != nil {
+		log.WithError(err).Warnf("Failed to cache %s token to redis", req.Type)
 	}
 
-	log.Infof("%s token successfully generated", dto.Type)
+	log.Infof("%s token successfully generated", req.Type)
 
 	return tokenResponse(tokenEntity), nil
 }
@@ -151,6 +167,7 @@ func (ts *tokenService) BlacklistToken(ctx context.Context, stringToken string) 
 	tokenData, err := ts.jwtRepo.FindByAccessToken(ctx, stringToken)
 	if err != nil {
 		log.WithError(err).Warn("Token not found in database, skipping database deletion")
+		return err
 	} else {
 		if err := ts.deleteToken(ctx, stringToken); err != nil {
 			log.WithError(err).Error("Failed to delete token from database")
@@ -177,17 +194,17 @@ func (ts *tokenService) BlacklistToken(ctx context.Context, stringToken string) 
 }
 
 func (ts *tokenService) RefreshToken(ctx context.Context, refreshToken string) (*dto.JwtResponse, error) {
-	masked := mask.MaskToken(refreshToken)
+	/*masked := mask.MaskToken(refreshToken)
 	log := logs.Logger.WithField("token", masked)
 
-	log.Info("Check refresh token in database")
+	log.Info("Check refresh token in database")*/
 
 	oldToken, err := ts.jwtRepo.FindByRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token")
 	}
 
-	log.Info("Blacklist old token")
+	//log.Info("Blacklist old token")
 	if err := ts.BlacklistToken(ctx, oldToken.AccessToken); err != nil {
 		logs.Logger.WithError(err).Warnf("Failed to blacklist old token")
 	}
@@ -211,6 +228,11 @@ func tokenResponse(token *model.JwtToken) *dto.JwtResponse {
 }
 
 func (ts *tokenService) saveToken(ctx context.Context, token *model.JwtToken) error {
+
+	if ts.db == nil {
+		return ts.jwtRepo.Create(ctx, token)
+	}
+
 	return ts.db.Transaction(func(tx *gorm.DB) error {
 		repoTx := ts.jwtRepo.WithTransaction(tx)
 		return repoTx.Create(ctx, token)
@@ -218,16 +240,28 @@ func (ts *tokenService) saveToken(ctx context.Context, token *model.JwtToken) er
 }
 
 func (ts *tokenService) deleteToken(ctx context.Context, stringToken string) error {
+	if ts.db == nil {
+		return ts.jwtRepo.DeleteAccessByToken(ctx, stringToken)
+	}
+
 	return ts.db.Transaction(func(tx *gorm.DB) error {
 		repoTx := ts.jwtRepo.WithTransaction(tx)
 		return repoTx.DeleteAccessByToken(ctx, stringToken)
 	})
 }
 
-func (ts *tokenService) buildClaims(userID, tokenType string, exp time.Time) jwt.MapClaims {
+func (ts *tokenService) buildClaims(userID string, exp time.Time) jwt.MapClaims {
 	return jwt.MapClaims{
 		"user_id": userID,
-		"type":    tokenType,
+		"type":    "access",
+		"exp":     exp.Unix(),
+	}
+}
+
+func (ts *tokenService) buildRefreshClaims(userID string, exp time.Time) jwt.MapClaims {
+	return jwt.MapClaims{
+		"user_id": userID,
+		"type":    "refresh",
 		"exp":     exp.Unix(),
 	}
 }
