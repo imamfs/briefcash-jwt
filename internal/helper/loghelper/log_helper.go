@@ -33,7 +33,7 @@ func InitLogger(logFile string, level logrus.Level) {
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 
 	if err != nil {
-		fmt.Printf("Failed to open log directory: %v\n", err)
+		fmt.Printf("Failed to open log file: %v\n", err)
 		Logger.SetOutput(os.Stdout)
 		return
 	}

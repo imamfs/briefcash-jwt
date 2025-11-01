@@ -72,5 +72,5 @@ func (h *GormHelper) Close() error {
 	if err == nil {
 		return sqlDB.Close()
 	}
-	return nil
+	return fmt.Errorf("failed to close database: %w", err)
 }
