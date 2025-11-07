@@ -45,8 +45,8 @@ func NewMockTokenService(jr repo.JwtRepository, rr repo.RedisRepository, secret 
 }
 
 func (ts *tokenService) GenerateToken(ctx context.Context, req dto.JwtRequest) (*dto.JwtResponse, error) {
-	/*log := logs.Logger.WithField("user_id", req.UserID)
-	log.Infof("Generating %s token", req.Type)*/
+	log := logs.Logger.WithField("user_id", req.UserID)
+	log.Infof("Generating %s token", req.Type)
 
 	var expAccessToken, expRefreshToken time.Time
 	var signedAccessToken, signedRefreshToken string
@@ -59,7 +59,7 @@ func (ts *tokenService) GenerateToken(ctx context.Context, req dto.JwtRequest) (
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	signedAccessToken, err = token.SignedString([]byte(ts.jwtSecret))
 	if err != nil {
-		//log.WithError(err).Error("Failed signing access token")
+		log.WithError(err).Error("Failed signing access token")
 		return nil, fmt.Errorf("failed to generate access token")
 	}
 
@@ -67,7 +67,7 @@ func (ts *tokenService) GenerateToken(ctx context.Context, req dto.JwtRequest) (
 	rtoken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	signedRefreshToken, err = rtoken.SignedString([]byte(ts.jwtSecret))
 	if err != nil {
-		//log.WithError(err).Error("Failed signing refresh token")
+		log.WithError(err).Error("Failed signing refresh token")
 		return nil, fmt.Errorf("failed to generate refresh token")
 	}
 
@@ -80,18 +80,18 @@ func (ts *tokenService) GenerateToken(ctx context.Context, req dto.JwtRequest) (
 		IsRevoke:     false,
 	}
 
-	//log.Infof("Saving %s token to database", req.Type)
+	log.Infof("Saving %s token to database", req.Type)
 	if err := ts.saveToken(ctx, tokenEntity); err != nil {
-		//log.WithError(err).Errorf("Failed saving %s token to database", req.Type)
+		log.WithError(err).Errorf("Failed saving %s token to database", req.Type)
 		return nil, err
 	}
 
-	//log.Infof("Saving %s token to redis", req.Type)
+	log.Infof("Saving %s token to redis", req.Type)
 	if err := ts.redisRepo.SetToken(ctx, signedAccessToken, "valid", time.Until(expAccessToken)); err != nil {
-		//log.WithError(err).Warnf("Failed to cache %s token to redis", req.Type)
+		log.WithError(err).Warnf("Failed to cache %s token to redis", req.Type)
 	}
 
-	//log.Infof("%s token successfully generated", req.Type)
+	log.Infof("%s token successfully generated", req.Type)
 
 	return tokenResponse(tokenEntity), nil
 }
@@ -194,17 +194,17 @@ func (ts *tokenService) BlacklistToken(ctx context.Context, stringToken string) 
 }
 
 func (ts *tokenService) RefreshToken(ctx context.Context, refreshToken string) (*dto.JwtResponse, error) {
-	/*masked := mask.MaskToken(refreshToken)
+	masked := mask.MaskToken(refreshToken)
 	log := logs.Logger.WithField("token", masked)
 
-	log.Info("Check refresh token in database")*/
+	log.Info("Check refresh token in database")
 
 	oldToken, err := ts.jwtRepo.FindByRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token")
 	}
 
-	//log.Info("Blacklist old token")
+	log.Info("Blacklist old token")
 	if err := ts.BlacklistToken(ctx, oldToken.AccessToken); err != nil {
 		logs.Logger.WithError(err).Warnf("Failed to blacklist old token")
 	}

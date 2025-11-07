@@ -1,11 +1,13 @@
 package middleware
 
 import (
-	jsonHelper "briefcash-jwt/internal/helper/jsonhelper"
+	"briefcash-jwt/internal/dto"
 	service "briefcash-jwt/internal/service"
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type contextKey string
@@ -25,52 +27,87 @@ func NewMiddleware(svc service.MerchantService) *Middleware {
 	return &Middleware{svc}
 }
 
-func (m *Middleware) AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var request struct {
 			MerchantCode string `json:"merchant_code"`
 		}
 
-		auth := r.Header.Get("Authorization")
+		auth := c.GetHeader("Authorization")
 
 		if auth == "" {
-			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "missing authorization header")
+			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Missing authorization header",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
 		if !strings.HasPrefix(auth, "Bearer ") {
-			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "invalid authorization format")
+			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Invalid authorization format, should be 'Bearer '",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
 		authToken := strings.TrimPrefix(auth, "Bearer ")
 		if authToken == "" {
-			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "empty bearer token")
+			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
+				Status:  false,
+				Message: "empty bearer token",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
-		if _, err := jsonHelper.ParseJsonBody(r, &request); err != nil {
-			jsonHelper.WriteJsonError(w, http.StatusBadRequest, err.Error())
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Invalid body request",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
 		if request.MerchantCode == "" {
-			jsonHelper.WriteJsonError(w, http.StatusBadRequest, "merchant code is empty")
+			c.JSON(http.StatusBadRequest, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Merchant code is empty",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
-		isValid, err := m.svc.ValidateMerchantCode(r.Context(), request.MerchantCode)
+		isValid, err := m.svc.ValidateMerchantCode(c.Request.Context(), request.MerchantCode)
 		if err != nil {
-			jsonHelper.WriteJsonError(w, http.StatusInternalServerError, "failed to validate merchant code")
+			c.JSON(http.StatusInternalServerError, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Failed to validate merchant code",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
 		if !isValid {
-			jsonHelper.WriteJsonError(w, http.StatusUnauthorized, "invalid or inactive merchant code")
+			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
+				Status:  false,
+				Message: "Invalid or inactive merchant code",
+				Data:    map[string]any{},
+			})
+			c.Abort()
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), tokenKey, authToken)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+		c.Set("token", authToken)
+		c.Next()
+	}
 }
