@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -38,7 +37,6 @@ func (r *redisRepository) SetToken(ctx context.Context, key, value string, ttl t
 }
 
 func (r *redisRepository) GetToken(ctx context.Context, key string) (string, error) {
-	fmt.Println("[DEBUG]: key:", key)
 	value, err := r.client.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", ErrTokenNotFound

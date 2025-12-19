@@ -29,7 +29,7 @@ func (s *MerchantController) SyncMerchantCode(w http.ResponseWriter, r *http.Req
 
 	logs.Info("Start syncing merchant code from db to redis")
 
-	if err := s.svc.LoadActiveMerchantCodeToRedis(ctx); err != nil {
+	if err := s.svc.CachingCode(ctx); err != nil {
 		logs.WithFields(map[string]interface{}{
 			"duration_ms": time.Since(start).Milliseconds(),
 			"error":       err.Error(),

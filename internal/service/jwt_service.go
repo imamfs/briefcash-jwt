@@ -230,23 +230,23 @@ func tokenResponse(token *model.JwtToken) *dto.JwtResponse {
 func (ts *tokenService) saveToken(ctx context.Context, token *model.JwtToken) error {
 
 	if ts.db == nil {
-		return ts.jwtRepo.Create(ctx, token)
+		return ts.jwtRepo.Save(ctx, token)
 	}
 
 	return ts.db.Transaction(func(tx *gorm.DB) error {
 		repoTx := ts.jwtRepo.WithTransaction(tx)
-		return repoTx.Create(ctx, token)
+		return repoTx.Save(ctx, token)
 	})
 }
 
 func (ts *tokenService) deleteToken(ctx context.Context, stringToken string) error {
 	if ts.db == nil {
-		return ts.jwtRepo.DeleteAccessByToken(ctx, stringToken)
+		return ts.jwtRepo.DeleteByAccessToken(ctx, stringToken)
 	}
 
 	return ts.db.Transaction(func(tx *gorm.DB) error {
 		repoTx := ts.jwtRepo.WithTransaction(tx)
-		return repoTx.DeleteAccessByToken(ctx, stringToken)
+		return repoTx.DeleteByAccessToken(ctx, stringToken)
 	})
 }
 

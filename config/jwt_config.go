@@ -11,8 +11,7 @@ import (
 
 type Config struct {
 	JWTSecret     string
-	DBUrl         string
-	DbHost        string
+	DbAddress     string
 	DbUsername    string
 	DbPassword    string
 	DbPort        string
@@ -23,18 +22,19 @@ type Config struct {
 	AppPort       string
 }
 
-func LoadConfiguration() (*Config, error) {
+func LoadConfig() (*Config, error) {
+	// Load credentials form .env file, if file not found, load OS environment variables
 	if err := env.Load(); err != nil {
 		logs.Logger.Error("No .env file found, using system environment variables")
 	}
 
+	// Set credentials to struct
 	cfg := &Config{
 		JWTSecret:     os.Getenv("JWT_SECRET"),
-		DBUrl:         os.Getenv("DB_URL"),
-		DbHost:        os.Getenv("DB_HOST"),
+		DbAddress:     os.Getenv("DB_ADDRESS"),
+		DbPort:        os.Getenv("DB_PORT"),
 		DbUsername:    os.Getenv("DB_USERNAME"),
 		DbPassword:    os.Getenv("DB_PASSWORD"),
-		DbPort:        os.Getenv("DB_PORT"),
 		DbName:        os.Getenv("DB_NAME"),
 		RedisAddress:  os.Getenv("REDIS_ADDRESS"),
 		RedisPort:     os.Getenv("REDIS_PORT"),
@@ -47,12 +47,13 @@ func LoadConfiguration() (*Config, error) {
 		}(),
 	}
 
+	// Validate jwt secret and db host
 	if cfg.JWTSecret == "" {
 		logs.Logger.Error("JWT_SECRET is not set in environment")
 		return nil, fmt.Errorf("JWT_SECRET is not set in environment")
 	}
 
-	if cfg.DbHost == "" {
+	if cfg.DbAddress == "" {
 		logs.Logger.Error("DB_HOST is not set in environment")
 		return nil, fmt.Errorf("DB_HOST is not set in environment")
 	}

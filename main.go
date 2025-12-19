@@ -26,22 +26,31 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// goroutine untuk graceful shutdown
+	// Create goroutine signal for gracefully shutdown
 	go func() {
-		signChan := make(chan os.Signal, 1)
-		signal.Notify(signChan, syscall.SIGINT, syscall.SIGTERM)
-		sign := <-signChan
+		sc := make(chan os.Signal, 1)
+		signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
+		sign := <-sc
 		logHelper.Logger.WithField("signal", sign.String()).Info("Received shutdown signal...")
 		cancel()
 	}()
 
-	cfg, err := config.LoadConfiguration()
+	// Load credentials configuration
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		logHelper.Logger.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	grmConfig := gormHelper.GormConfig{
-		Host:     cfg.DbHost,
+	// Build redis connection
+	redisClient, err := redisHelper.NewRedisAdapter(cfg)
+	if err != nil {
+		logHelper.Logger.WithError(err).Fatal("failed to connect to redis")
+	}
+	defer redisClient.Close()
+
+	// Build and init database connection
+	gormConfig := gormHelper.GormConfig{
+		Address:  cfg.DbAddress,
 		Port:     cfg.DbPort,
 		User:     cfg.DbUsername,
 		Password: cfg.DbPassword,
@@ -49,35 +58,35 @@ func main() {
 		SSLMode:  "disable",
 	}
 
-	redisClient, err := redisHelper.NewRedisHelper(cfg)
-	if err != nil {
-		logHelper.Logger.WithError(err).Fatal("failed to connect to redis")
-	}
-	defer redisClient.Close()
-
-	dbHelper, err := gormHelper.NewGormHelper(grmConfig)
+	dbHelper, err := gormHelper.NewGormAdapter(gormConfig)
 	if err != nil {
 		logHelper.Logger.WithError(err).Fatal("failed to connect to database")
 	}
 	defer dbHelper.Close()
 
+	// Create repository instance
 	jwtRepo := repo.NewJwtRepository(dbHelper.DB)
 	merchantRepo := repo.NewMerchantRepository(dbHelper.DB)
 	redisRepo := repo.NewRedisRepository(redisClient.Client)
 	merchantRedisRepo := repo.NewMerchantRedisRepository(redisClient.Client)
 
+	// Create service instance
 	jwtService := service.NewTokenService(jwtRepo, redisRepo, dbHelper.DB, cfg.JWTSecret)
 	merchantService := service.NewMerchantService(merchantRepo, merchantRedisRepo)
 
-	if err := merchantService.LoadActiveMerchantCodeToRedis(ctx); err != nil {
+	// Load list of merchant code from database to redis
+	if err := merchantService.CachingCode(ctx); err != nil {
 		logHelper.Logger.WithError(err).Fatal("Failed to load merchant code to redis")
 	}
 
+	// Create controller instance
 	jwtController := controller.NewTokenController(jwtService)
 	merchantController := controller.NewMerchantController(merchantService)
 
-	mware := middleware.NewMiddleware(merchantService)
+	// Create middleware instance
+	mw := middleware.NewMiddleware(merchantService)
 
+	// Init http connection
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(RequestLoggerMiddleware())
@@ -88,8 +97,8 @@ func main() {
 		{
 			token.POST("/generate", jwtController.GenerateToken)
 			token.POST("/refresh", jwtController.RefreshToken)
-			token.POST("/validate", mware.AuthMiddleware(), jwtController.ValidateToken)
-			token.POST("/logout", mware.AuthMiddleware(), jwtController.Logout)
+			token.POST("/validate", mw.AuthMiddleware(), jwtController.ValidateToken)
+			token.POST("/logout", mw.AuthMiddleware(), jwtController.Logout)
 		}
 
 		merchant := api.Group("/merchant")
@@ -105,6 +114,7 @@ func main() {
 		Handler: router,
 	}
 
+	// Create goroutine for openning http connection
 	go func() {
 		logHelper.Logger.WithField("port", cfg.AppPort).Info("JWT Service is running...")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -112,11 +122,12 @@ func main() {
 		}
 	}()
 
-	// tunggu signal shutdown diterima
+	// If apps receives shutdown signal, then shutdown gracefully
 	<-ctx.Done()
 
 	logHelper.Logger.Info("Shutting Down JWT Service gracefully...")
 
+	// Set timeout for shutdown
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelShutdown()
 
@@ -128,6 +139,7 @@ func main() {
 
 }
 
+// Middleware function for logging http activity
 func RequestLoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()

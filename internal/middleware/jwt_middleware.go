@@ -27,14 +27,15 @@ func NewMiddleware(svc service.MerchantService) *Middleware {
 	return &Middleware{svc}
 }
 
+// Middleware function to validate http header and payload
 func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var request struct {
-			MerchantCode string `json:"merchant_code"`
+		var payload struct {
+			Code string `json:"merchant_code"`
 		}
 
+		// Validate Authorization header
 		auth := c.GetHeader("Authorization")
-
 		if auth == "" {
 			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
 				Status:  false,
@@ -45,6 +46,7 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Validate bearer variable
 		if !strings.HasPrefix(auth, "Bearer ") {
 			c.JSON(http.StatusUnauthorized, dto.JwtDataResponse{
 				Status:  false,
@@ -66,7 +68,8 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if err := c.ShouldBindJSON(&request); err != nil {
+		// Validate payload request
+		if err := c.ShouldBindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, dto.JwtDataResponse{
 				Status:  false,
 				Message: "Invalid body request",
@@ -76,7 +79,8 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if request.MerchantCode == "" {
+		// Validate merchant code
+		if payload.Code == "" {
 			c.JSON(http.StatusBadRequest, dto.JwtDataResponse{
 				Status:  false,
 				Message: "Merchant code is empty",
@@ -86,7 +90,7 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		isValid, err := m.svc.ValidateMerchantCode(c.Request.Context(), request.MerchantCode)
+		isValid, err := m.svc.ValidateMerchantCode(c.Request.Context(), payload.Code)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, dto.JwtDataResponse{
 				Status:  false,
@@ -107,6 +111,7 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Store access token to context
 		c.Set("token", authToken)
 		c.Next()
 	}

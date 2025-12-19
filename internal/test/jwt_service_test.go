@@ -28,7 +28,7 @@ type MockJWTRepository struct {
 	mock.Mock
 }
 
-func (m *MockJWTRepository) Create(ctx context.Context, token *entity.JwtToken) error {
+func (m *MockJWTRepository) Save(ctx context.Context, token *entity.JwtToken) error {
 	args := m.Called(ctx, token)
 	return args.Error(0)
 	//return m.CreateErr
@@ -49,7 +49,7 @@ func (m *MockJWTRepository) FindByRefreshToken(ctx context.Context, token string
 	return m.FindByRefreshTokenResult, m.FindByRefreshTokenErr
 }
 
-func (m *MockJWTRepository) DeleteAccessByToken(ctx context.Context, token string) error {
+func (m *MockJWTRepository) DeleteByAccessToken(ctx context.Context, token string) error {
 	return m.DeleteByAccessTokenErr
 }
 

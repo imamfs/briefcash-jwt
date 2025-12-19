@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-type SQLHelper struct {
+type SQLAdapter struct {
 	DB *sql.DB
 }
 
 type SQLConfig struct {
-	Host     string
+	Address  string
 	Port     int
 	User     string
 	Password string
@@ -20,15 +20,15 @@ type SQLConfig struct {
 	SSLMode  string
 }
 
-func NewSQLHelper(config SQLConfig) (*SQLHelper, error) {
+func NewSQLAdapter(config SQLConfig) (*SQLAdapter, error) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode,
+		config.Address, config.Port, config.User, config.Password, config.DBName, config.SSLMode,
 	)
 
 	db, err := sql.Open("postgres", dsn)
 
 	if err != nil {
-		logs.Logger.Error("failed to connect database: %w", err)
+		logs.Logger.Error("Failed established database connection: %w", err)
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
@@ -37,13 +37,13 @@ func NewSQLHelper(config SQLConfig) (*SQLHelper, error) {
 	db.SetConnMaxLifetime(time.Hour)
 
 	if err := db.Ping(); err != nil {
-		logs.Logger.Error("failed to open connection with db: %w", err)
-		return nil, fmt.Errorf("failed to ping db: %w", err)
+		logs.Logger.Error("Failed to ping database: %w", err)
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &SQLHelper{DB: db}, nil
+	return &SQLAdapter{DB: db}, nil
 }
 
-func (h *SQLHelper) Close() {
+func (h *SQLAdapter) Close() {
 	h.DB.Close()
 }

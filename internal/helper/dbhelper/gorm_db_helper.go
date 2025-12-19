@@ -12,12 +12,12 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-type GormHelper struct {
+type GormAdapter struct {
 	DB *gorm.DB
 }
 
 type GormConfig struct {
-	Host     string
+	Address  string
 	Port     string
 	User     string
 	Password string
@@ -25,11 +25,12 @@ type GormConfig struct {
 	SSLMode  string
 }
 
-func NewGormHelper(gormCfg GormConfig) (*GormHelper, error) {
+func NewGormAdapter(gormCfg GormConfig) (*GormAdapter, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		gormCfg.Host, gormCfg.Port, gormCfg.User, gormCfg.Password, gormCfg.DBName, gormCfg.SSLMode,
+		gormCfg.Address, gormCfg.Port, gormCfg.User, gormCfg.Password, gormCfg.DBName, gormCfg.SSLMode,
 	)
 
+	// Init config
 	db, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
 		PreferSimpleProtocol: false,
@@ -42,12 +43,14 @@ func NewGormHelper(gormCfg GormConfig) (*GormHelper, error) {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
 
+	// Create generic function
 	sqlDB, err := db.DB()
 	if err != nil {
 		logs.Logger.WithError(err).Error("Failed to get generic database")
 		return nil, fmt.Errorf("failed to get generic database: %w", err)
 	}
 
+	// Ping database connection
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -60,14 +63,14 @@ func NewGormHelper(gormCfg GormConfig) (*GormHelper, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return &GormHelper{DB: db}, nil
+	return &GormAdapter{DB: db}, nil
 }
 
-func (h *GormHelper) AutoMigrate(models ...interface{}) error {
+func (h *GormAdapter) AutoMigrate(models ...interface{}) error {
 	return h.DB.AutoMigrate(models...)
 }
 
-func (h *GormHelper) Close() error {
+func (h *GormAdapter) Close() error {
 	sqlDB, err := h.DB.DB()
 	if err == nil {
 		return sqlDB.Close()

@@ -10,17 +10,18 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisHelper struct {
+type redisAdapter struct {
 	Client *redis.Client
 }
 
-func NewRedisHelper(cfg *config.Config) (*RedisHelper, error) {
+func NewRedisAdapter(cfg *config.Config) (*redisAdapter, error) {
 
 	if cfg.RedisAddress == "" || cfg.RedisPort == "" {
 		logs.Logger.Error("Invalid redis config: address or port is empty")
 		return nil, fmt.Errorf("invalid redis config: address or port is empty")
 	}
 
+	// Set up config
 	address := fmt.Sprintf("%s:%s", cfg.RedisAddress, cfg.RedisPort)
 
 	client := redis.NewClient(&redis.Options{
@@ -33,6 +34,7 @@ func NewRedisHelper(cfg *config.Config) (*RedisHelper, error) {
 		WriteTimeout: 2 * time.Second,
 	})
 
+	// Ping Redis connection with context
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -43,9 +45,9 @@ func NewRedisHelper(cfg *config.Config) (*RedisHelper, error) {
 
 	logs.Logger.Info("Connected to Redis successfully")
 
-	return &RedisHelper{Client: client}, nil
+	return &redisAdapter{Client: client}, nil
 }
 
-func (r *RedisHelper) Close() error {
+func (r *redisAdapter) Close() error {
 	return r.Client.Close()
 }

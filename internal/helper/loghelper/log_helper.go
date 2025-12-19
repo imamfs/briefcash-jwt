@@ -11,6 +11,7 @@ import (
 
 var Logger *logrus.Logger
 
+// Build log initializer
 func InitLogger(logFile string, level logrus.Level) {
 	Logger = logrus.New()
 
@@ -20,6 +21,7 @@ func InitLogger(logFile string, level logrus.Level) {
 
 	Logger.SetLevel(level)
 
+	// Check existing directory and create file directory
 	dir := filepath.Dir(logFile)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0755)
@@ -30,6 +32,7 @@ func InitLogger(logFile string, level logrus.Level) {
 		}
 	}
 
+	// Open file log
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 
 	if err != nil {
@@ -38,6 +41,7 @@ func InitLogger(logFile string, level logrus.Level) {
 		return
 	}
 
+	// Write log to file
 	multiWriter := io.MultiWriter(os.Stdout, file)
 	Logger.SetOutput(multiWriter)
 

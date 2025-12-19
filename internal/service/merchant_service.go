@@ -10,7 +10,7 @@ import (
 )
 
 type MerchantService interface {
-	LoadActiveMerchantCodeToRedis(ctx context.Context) error
+	CachingCode(ctx context.Context) error
 	ValidateMerchantCode(ctx context.Context, mCode string) (bool, error)
 	AddMerchantCode(ctx context.Context, mCode string) error
 	RemoveMerchantCode(ctx context.Context, mCode string) error
@@ -28,7 +28,7 @@ func NewMerchantService(dbRepo repo.MerchantRepository, redisRepo repo.MerchantR
 	}
 }
 
-func (s *merchantService) LoadActiveMerchantCodeToRedis(ctx context.Context) error {
+func (s *merchantService) CachingCode(ctx context.Context) error {
 	start := time.Now()
 
 	defer func() {
